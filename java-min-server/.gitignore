@@ -6,3 +6,6 @@ build
 
 # keys
 keys
+
+# intellij
+.idea/

@@ -3,21 +3,44 @@
  */
 package org.example;
 
-import com.sun.net.httpserver.HttpServer;
+import java.io.InputStream;
 import java.net.InetSocketAddress;
+import java.security.KeyStore;
+
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+
+import com.sun.net.httpserver.HttpsConfigurator;
+import com.sun.net.httpserver.HttpsServer;
 
 public class App {
     public static void main(String[] args) throws Exception {
-        // サーバをポート8080で作成
-        HttpServer server = HttpServer.create(new InetSocketAddress(8080), 0);
 
-        // エンドポイントを登録
-        server.createContext("/", new HelloHandler()); // http://localhost:8080/
-        server.createContext("/custom", new CustomHandler()); // http://localhost:8080/custom
+        // KeyStore のロード
+        char[] password = "*****".toCharArray();
+        KeyStore keyStore = KeyStore.getInstance("PKCS12");
+        try (InputStream inputStream = App.class.getClassLoader().getResourceAsStream("keys/server.p12")) {
+            keyStore.load(inputStream, password);
+        }
 
-        // サーバを開始
+        // SSLContext 初期化
+        KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
+        kmf.init(keyStore, password);
+        SSLContext sslContext = SSLContext.getInstance("TLS");
+        sslContext.init(kmf.getKeyManagers(), null, null);
+
+        // サーバーの作成
+        HttpsServer server = HttpsServer.create(new InetSocketAddress(8443), 0);
+        server.setHttpsConfigurator(new HttpsConfigurator(sslContext));
+
+        // エンドポイント設定
+        server.createContext("/", new HelloHandler());
+        server.createContext("/custom", new CustomHandler());
+
+        // 起動
         server.setExecutor(null); // デフォルトのスレッドプール
         server.start();
-        System.out.println("Server started on http://localhost:8080");
+        System.out.println("Server started on https://localhost:8443");
     }
+
 }
